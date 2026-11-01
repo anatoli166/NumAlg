@@ -48,11 +48,11 @@ class SpatialDiffusionEngine:
         Strictly mass-conservative Upwind Finite Volume scheme for div(v * chi * grad(u)).
         Calculates exact fluxes at cell interfaces to eliminate all numerical grid-locking.
         """
-        # 1. Prey gradients at cell interfaces (i+1/2, j+1/2)
+        #1. Prey gradients at cell interfaces (i+1/2, j+1/2)
         grad_u_x_half = (np.roll(u, -1, axis=0) - u) / self.dx
         grad_u_y_half = (np.roll(u, -1, axis=1) - u) / self.dy
 
-        # 2. Upwind hunter concentration at interfaces based on flow direction
+        # 2. upwind hunter concentration at interfaces based on flow direction
         v_x_half = np.where(grad_u_x_half > 0, v, np.roll(v, -1, axis=0))
         v_y_half = np.where(grad_u_y_half > 0, v, np.roll(v, -1, axis=1))
 
@@ -60,7 +60,7 @@ class SpatialDiffusionEngine:
         flux_x_half = self.chi * v_x_half * grad_u_x_half
         flux_y_half = self.chi * v_y_half * grad_u_y_half
 
-        # 4. Net flux divergence into each cell (F_out - F_in) / dx
+        # 4. net flux divergence into each cell (F_out - F_in) / dx
         div_flux_x = (flux_x_half - np.roll(flux_x_half, 1, axis=0)) / self.dx
         div_flux_y = (flux_y_half - np.roll(flux_y_half, 1, axis=1)) / self.dy
 
@@ -78,17 +78,16 @@ class SpatialDiffusionEngine:
         # Divergence of the advective flux (subtracting from v)
         advection_v = -self.compute_advection_divergence(self.v, self.u)
 
-        # ====================================================================
+        
         # HOPF BIFURCATION KINETICS: a=3.0, b=3.0, m=0.4
         # Forces a mathematically unstable local equilibrium.
-        # The system MUST oscillate endlessly and cannot mathematically smooth out.
-        # ====================================================================
+        # The system MUST oscillate endlessly and cannot mathematically smooth out
         predation = (3.0 * self.u * self.v) / (1.0 + 3.0 * self.u)
         
         reaction_u = 1.0 * self.u * (1.0 - self.u) - predation
         reaction_v = predation - 0.4 * self.v
 
-        # Explicit Time Update
+        # explicit Time Update
         self.u += dt * (self.Du * lap_u + reaction_u)
         self.v += dt * (self.Dv * lap_v + advection_v + reaction_v)
 
@@ -102,11 +101,11 @@ def setup_unstable_landscape(grid_size=150):
     Because the kinetics are unstable, this single seed will autonomously rupture
     into endless, propagating waves and chasing fronts.
     """
-    # Start near the unstable homogeneous equilibrium (u~0.22, v~0.43)
+    # tart near the unstable homogeneous equilibrium (u~0.22, v~0.43)
     u0 = 0.22 * np.ones((grid_size, grid_size))
     v0 = 0.43 * np.ones((grid_size, grid_size))
     
-    # Single heavy disturbance in the center to kickstart the endless wave cascade
+    #single heavy disturbance in the center to kickstart the endless wave cascade
     cx, cy = grid_size // 2, grid_size // 2
     r = 10
     y, x = np.ogrid[-cx:grid_size-cx, -cy:grid_size-cy]
@@ -115,7 +114,7 @@ def setup_unstable_landscape(grid_size=150):
     u0[mask] = 0.8
     v0[mask] = 0.1
 
-    # Add minor noise to break perfect symmetry
+    #Add minor noise to break perfect symmetry
     np.random.seed(42)
     u0 += 0.02 * np.random.randn(grid_size, grid_size)
     v0 += 0.02 * np.random.randn(grid_size, grid_size)
