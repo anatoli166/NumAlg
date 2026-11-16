@@ -2,6 +2,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+def find_equilibrium_newton():
+    #Finds the exact steady state of the reaction kinetics using Newton's method.
+    def jacobian(u, v):
+        J11 = 1-2*u - 3*v/((1+3*u)**2)
+        J12 = -3*u/(1+3*u)
+        J21 = 3*v/((1+3*u)**2)
+        J22 = 3*u/(1+3*u) - 0.4
+        return np.array([[J11, J12], [J21, J22]])
+    def F(u, v):
+        return np.array([
+            u*(1-u) - (3*u*v)/(1+3*u),
+            (3*u*v)/(1+3*u) - 0.4*v
+        ])
+    u_guess, v_guess = 0.2, 0.4
+    for _ in range(10):
+        F_val = F(u_guess, v_guess)
+        J = jacobian(u_guess, v_guess)
+        delta = np.linalg.solve(J, -F_val)
+        u_guess += delta[0]
+        v_guess += delta[1]
+    return u_guess, v_guess
 
 class SpatialDiffusionEngine:
     """
