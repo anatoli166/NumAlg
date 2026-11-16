@@ -108,12 +108,27 @@ class SpatialDiffusionEngine:
         reaction_u = 1.0 * self.u * (1.0 - self.u) - predation
         reaction_v = predation - 0.4 * self.v
 
-        # explicit Time Update
-        self.u += dt * (self.Du * lap_u + reaction_u)
-        self.v += dt * (self.Dv * lap_v + advection_v + reaction_v)
+        #We apply RK4 time stepping for better stability and accuracy
+        def kinetics(u, v):
+            predation = (3.0 * u * v) / (1.0 + 3.0 * u)
+            ru = 1.0 * u * (1.0 - u) - predation
+            rv = predation - 0.4 * v
+            return ru, rv
+        #RK4 Stages for reaction terms
+        k1_u, k1_v = kinetics(self.u, self.v)
+        u2 = self.u + 0.5 * dt * k1_u
+        v2 = self.v + 0.5 * dt * k1_v
+        k2u, k2_v = kinetics(u2, v2)
+        u3 = self.u + 0.5 * dt * k2u
+        v3 = self.v + 0.5 * dt * k2_v
+        k3u, k3_v = kinetics(u3, v3)
+        u4 = self.u + dt * k3u
+        v4 = self.v + dt * k3_v
+        k4u, k4_v = kinetics(u4, v4)
 
-        self.u = np.clip(self.u, 0.0, 1.0)
-        self.v = np.clip(self.v, 0.0, 1.0)
+        self.u += dt * (k1_u + 2 * k2u + 2 * k3u + k4u) / 6
+        self.v += dt * (k1_v + 2 * k2_v + 2 * k3_v + k4_v) / 6
+
 
 
 def setup_unstable_landscape(grid_size=150):
@@ -122,9 +137,12 @@ def setup_unstable_landscape(grid_size=150):
     Because the kinetics are unstable, this single seed will autonomously rupture
     into endless, propagating waves and chasing fronts.
     """
-    # tart near the unstable homogeneous equilibrium (u~0.22, v~0.43)
-    u0 = 0.22 * np.ones((grid_size, grid_size))
-    v0 = 0.43 * np.ones((grid_size, grid_size))
+    # Use newton method to find the exact unstable equilibrium point
+    u_eq, v_eq = find_equilibrium_newton()
+    print(f"Unstable equilibrium point found: u_eq={u_eq:.4f}, v_eq={v_eq:.4f}")
+    u0 = np.full((grid_size, grid_size), u_eq)
+    v0 = np.full((grid_size, grid_size), v_eq)
+    
     
     #single heavy disturbance in the center to kickstart the endless wave cascade
     cx, cy = grid_size // 2, grid_size // 2
